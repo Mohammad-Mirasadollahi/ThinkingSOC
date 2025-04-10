@@ -287,7 +287,7 @@ The recommended method is to use the custom **ThinkingSOC Alert Action for Splun
         Replace `<your_thinkingsoc_server_ip>` with the actual IP address or hostname where your ThinkingSOC API server is running, and `<port>` with the port number configured in your ThinkingSOC `.env` file (e.g., `8001`).
 
 **3. Using the Alert Action in Splunk Searches:**
-   Once installed and configured, you can select "ThinkingSOC Webhook" from the list of available Alert Actions when creating or editing alerts in Splunk. When the alert triggers, the Alert Action will send the relevant results to your ThinkingSOC API server.
+   Once installed and configured, you can select "ThinkingSOC" from the list of available Alert Actions when creating or editing alerts in Splunk. When the alert triggers, the Alert Action will send the relevant results to your ThinkingSOC.
 
 By using this Alert Action, you establish the data pipeline from Splunk alert detection to LLM-powered analysis via the ThinkingSOC API.
 
