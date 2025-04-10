@@ -1,0 +1,25 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Generated data directory
+Data/
+
+# Runtime state file
+pending_queue.json
+
+# Environment variables file (IMPORTANT!)
+.env
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files (Optional examples)
+.vscode/
+.idea/
