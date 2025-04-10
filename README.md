@@ -1,11 +1,47 @@
+
 # ThinkingSOC: AI-Powered Threat Detection and Response for Your SOC Environment
+
+[![License](https://img.shields.io/badge/License-PolyForm%20Internal%20Use%201.0.0-blue)](LICENSE)
 
 ## Overview
 
 ThinkingSOC is the first open-source, next-generation cybersecurity solution of its kind. It is designed to function as an advanced cybersecurity intelligence system, continuously analyzing, detecting, and responding to threats in real-time.
+
 Unlike traditional rule-based tools in SOCs, ThinkingSOC doesn't just automate — it thinks. Inspired by human decision-making, it analyzes, understands, learns, and responds like a real analyst. This is not an enhancement of existing tools — it’s a fundamental shift toward building a human-level digital brain for cybersecurity.
+
 Traditional Security Operations Centers (SOC) often struggle with overwhelming alert volumes, delayed response times, and manual investigation processes, leaving organizations vulnerable to sophisticated cyberattacks. ThinkingSOC eliminates these inefficiencies by combining intelligent automation, contextual data correlation, and LLM-powered real-time decision-making to provide an adaptive and proactive defense mechanism.
+
 Operating 24/7, ThinkingSOC integrates with SOC environments to ingest, analyze, and prioritize alerts, reducing the workload on security teams. By applying advanced analytics, behavioral modeling, and natural-language-driven reasoning, it detects emerging threats, correlates multi-source security data, and refines detection mechanisms dynamically. This comprehensive and cognitive approach allows organizations to shift from reactive security measures to thinking-driven, proactive threat management, enhancing overall resilience against cyber threats.
+
+## Overall Architecture
+
+The complete ThinkingSOC solution relies on the interaction of three main components:
+
+1.  **Splunk:** Your Security Information and Event Management (SIEM) platform where security alerts are generated based on search criteria.
+2.  **ThinkingSOC API Server (This Repository):** A FastAPI-based application that acts as the intermediary. It receives alerts from Splunk via a webhook, queues them for processing, interacts with Ollama to get analysis, and stores the results.
+3.  **Ollama:** The self-hosted Large Language Model (LLM) provider. It runs the chosen language model (e.g., Llama3, Qwen, Mistral) and performs the actual text analysis based on the prompt and data sent by the ThinkingSOC API Server.
+
+
+**Interaction Steps:**
+
+1.  Splunk detects an event matching an alert's search criteria.
+2.  The configured **ThinkingSOC Alert Action** in Splunk triggers.
+3.  The Alert Action sends the relevant alert details via an HTTP POST request (webhook) to the ThinkingSOC API Server's `/api/v1/webhook` endpoint.
+4.  The ThinkingSOC API Server receives the request, validates the data, and places it into an asynchronous processing queue.
+5.  A background worker within the ThinkingSOC API Server picks up the alert data from the queue.
+6.  The worker prepares the data and sends it, along with the configured prompt (`prompt/prompt.md`), to the Ollama instance via its API.
+7.  Ollama processes the request using the specified LLM and returns the generated analysis.
+8.  The ThinkingSOC API Server worker receives the analysis, attempts to parse it (ideally as JSON), and saves the analysis, metadata, and any intermediate "think" steps to the `Data/` directory.
+
+**Scope of This Repository:**
+
+This repository contains the source code and documentation *only* for the **ThinkingSOC API Server** component. You will need to:
+
+*   Set up and manage your own **Splunk** instance.
+*   Install and configure the **[ThinkingSOC Alert Action for Splunk](https://github.com/Mohammad-Mirasadollahi/Splunk-Alert_ThinkingSOC)**.
+*   Set up, manage, and run your own **Ollama** instance with the desired models.
+
+---
 
 ## Detailed Features
 
@@ -43,6 +79,225 @@ Operating 24/7, ThinkingSOC integrates with SOC environments to ingest, analyze,
 - **Targeted Investigations:** Empowers security analysts by accepting hypotheses and autonomously executing precise searches within the SIEM.
 - **In-Depth Analysis:** Compiles results from these searches into comprehensive reports that provide clarity on emerging threat patterns and vulnerabilities.
 - **Holistic Security Insights:** Integrates data from network logs, endpoint activities, and SIEM alerts to deliver a unified view of the security environment, enhancing situational awareness.
+
+## Prerequisites
+
+This project has been tested on **Ubuntu 24.04 LTS**.
+
+1.  **Python:** Version 3.10 or higher is recommended.
+2.  **Git:** Required for cloning the repository.
+3.  **Python PIP and venv:** Required for package management and creating isolated environments. On **Ubuntu/Debian-based systems**, install using:
+    ```bash
+    sudo apt update
+    sudo apt install python3-pip python3.12-venv # Adjust version if needed
+    ```
+4.  **Ollama Instance:** Access to a running [Ollama](https://ollama.com/) instance is essential.
+    *   **Installation:** If you haven't installed Ollama yet, follow the official instructions on the [Ollama website](https://ollama.com/download/linux). Installation typically involves a simple download and setup script for Linux, macOS, and Windows (via WSL).
+        ```bash
+        curl -fsSL https://ollama.com/install.sh | sh
+        ```
+    *   **Network Accessibility:** The ThinkingSOC API server needs to be able to reach the Ollama server over the network.
+    *   **Ollama Host Configuration:** By default, Ollama might only listen on `127.0.0.1` (localhost). If ThinkingSOC is running on a different machine or in a different container than Ollama, you **must** configure Ollama to listen on an accessible network interface (like `0.0.0.0` to listen on all interfaces). This is often done by setting the `OLLAMA_HOST` environment variable **before starting the Ollama service**.
+        *   **Example (Linux using systemd):** You might need to edit the Ollama systemd service file (e.g., via `sudo systemctl edit ollama.service`) and add `Environment="OLLAMA_HOST=0.0.0.0:11434"` under the `[Service]` section, then restart the service (`sudo systemctl daemon-reload && sudo systemctl restart ollama`). Refer to the [Ollama documentation on binding](https://github.com/ollama/ollama/blob/main/docs/faq.md#how-do-i-expose-ollama-on-my-network) or systemd for specifics.
+        *   Verify the IP and port Ollama is listening on and ensure it matches the `OLLAMA_HOST` variable set in the ThinkingSOC `.env` file. Check firewall rules if connectivity issues persist.
+    *   **Model Download:** The specific Ollama models you intend to use with ThinkingSOC must be downloaded onto the Ollama server *before* running the API. Use the `ollama pull` command:
+        ```bash
+        ollama pull <model_name>
+        # Example: ollama pull qwen2.5:7b
+        ```
+        You can list installed models using `ollama list`.
+
+5.  **Tested Ollama Models:** Testing was performed using these models:
+    *   `qwen2.5:14b-instruct-q5_1`
+    *   `qwq:32b-q8_0`
+    *   `qwen2.5:7b`
+      
+    While other models might work, ensure they can effectively process the prompt in `prompt/prompt.md` and generate the desired JSON output. Sufficient server resources (RAM/VRAM) for the chosen model are necessary.
+
+## Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Mohammad-Mirasadollahi/ThinkingSOC.git
+    cd ThinkingSOC
+    ```
+
+2.  **Create and activate a virtual environment:**
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## Configuration
+
+1.  **Environment File (`.env`):** This project uses a `.env` file in the root directory to load configuration settings. **Ensure this file exists and contains the necessary variables.** _(Since you mentioned it's already uploaded, users cloning the repo will have it. Consider adding a note about creating it locally if it were ignored by git)._
+
+2.  **Required `.env` Variables:**
+
+    ```dotenv
+    # Ollama Configuration
+    OLLAMA_HOST=http://<your_ollama_ip_or_hostname>:<ollama_port> # Example: http://192.168.1.99:11434
+    OLLAMA_MODEL=<name_of_ollama_model_to_use>                # Example: qwen2.5:14b-instruct-q5_1
+
+    # Generation Parameters (Tune for your model and desired output)
+    TEMPERATURE=0.6
+    TOP_P=0.5
+    TOP_K=20
+    # CRITICAL: Set MAX_TOKENS high enough for the *entire* expected JSON output.
+    # Increase significantly (e.g., 2048, 4096, 8192+) if JSON output is truncated.
+    MAX_TOKENS=4096 # Example increased value
+    REPETITION_PENALTY=1.2
+
+    # FastAPI Server Configuration
+    PORT=8001 # Port for the API server
+
+    # Logging Configuration
+    LOG_LEVEL=INFO # Use DEBUG for detailed logs
+    ```
+
+3.  **Customize the Prompt:** The analysis quality heavily depends on the instructions given to the LLM. **Review and edit the `prompt/prompt.md` file** to refine the analysis task and the desired JSON output structure.
+
+## Running the Server
+
+Execute the following command from the project's root directory:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}
+```
+
+*   This reads the `PORT` from `.env` (defaulting to 8001).
+*   The server will be available at `http://<your_server_ip>:<your_port>`.
+*   For development, use `--reload` for automatic restarts on code changes:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001} --reload
+```    
+
+## Usage
+
+Send a `POST` request to the `/api/v1/webhook` endpoint. The request body should be a JSON object adhering to the `WebhookData` model (see `app/utils/models.py`) or a JSON array of such objects.
+
+**Example `curl` Request:**
+
+```bash
+curl -X POST http://localhost:8001/api/v1/webhook \
+-H "Content-Type: application/json" \
+-d '{
+      "sid": "unique_alert_id_67890",
+      "search_name": "Potential Phishing Attempt",
+      "search_query": "index=email sourcetype=o365_email recipient=\"*@yourdomain.com\" subject=\"*Invoice*\"",
+      "description": "Email received with suspicious subject and attachment.",
+      "severity": "Medium",
+      "kill_chain": "Delivery",
+      "mitre_tactics": ["TA0001"],
+      "mitre_techniques": ["T1566.001"],
+      "row_number": 1,
+      "row_data": {
+        "sender": "attacker@malicious.com",
+        "recipient": "employee@yourdomain.com",
+        "subject": "Urgent Invoice Attached",
+        "attachment_name": "invoice_payment.pdf.exe",
+        "received_time": "2024-04-10T10:30:00Z"
+      }
+    }'
+```
+
+The API will respond with `202 Accepted` upon successful validation and queuing. Processing happens asynchronously.
+
+## Sending Alerts from Splunk
+
+To feed security alerts from your Splunk instance into this ThinkingSOC API server for analysis, you need a mechanism to trigger a webhook call upon alert detection.
+
+The recommended method is to use the custom **ThinkingSOC Alert Action for Splunk**. This Alert Action is specifically designed to format Splunk alert results correctly and send them to the ThinkingSOC API endpoint.
+
+**1. Get the Alert Action:**
+   The ThinkingSOC Alert Action for Splunk is available in a separate GitHub repository:
+   *   **Repository:** [Mohammad-Mirasadollahi/Splunk-Alert_ThinkingSOC](https://github.com/Mohammad-Mirasadollahi/Splunk-Alert_ThinkingSOC)
+
+**2. Installation and Configuration:**
+   *   Please refer to the **`README.md` file within the `Splunk-Alert_ThinkingSOC` repository** linked above for detailed instructions on:
+        *   How to install the Alert Action app onto your Splunk Search Head(s).
+        *   How to configure the Alert Action globally or per alert.
+   *   **Crucial Configuration Point:** When configuring the Alert Action in Splunk, you **must** specify the URL of your ThinkingSOC API server's webhook endpoint. This URL should typically be:
+        ```
+        http://<your_thinkingsoc_server_ip>:<port>/api/v1/webhook
+        ```
+        Replace `<your_thinkingsoc_server_ip>` with the actual IP address or hostname where your ThinkingSOC API server is running, and `<port>` with the port number configured in your ThinkingSOC `.env` file (e.g., `8001`).
+
+**3. Using the Alert Action in Splunk Searches:**
+   Once installed and configured, you can select "ThinkingSOC Webhook" from the list of available Alert Actions when creating or editing alerts in Splunk. When the alert triggers, the Alert Action will send the relevant results to your ThinkingSOC API server.
+
+By using this Alert Action, you establish the data pipeline from Splunk alert detection to LLM-powered analysis via the ThinkingSOC API.
+
+## Data Storage and Output Format
+
+All data generated during the processing of a webhook alert is stored within the `Data/` directory, located in the root of the project. This directory is automatically created if it doesn't exist. Inside `Data/`, subdirectories are created based on the unique Security ID (`sid`) provided in each webhook request.
+
+Within each `<sid>` directory, the following files are generated for each processed row (`<row_number>` corresponds to the `row_number` field in the webhook data):
+
+1.  **`metadata.json`**
+    *   **Location:** `Data/<sid>/metadata.json`
+    *   **Format:** JSON object.
+    *   **Content:** Contains key metadata extracted directly from the webhook alert, intended for quick reference. This typically includes:
+        ```json
+        {
+          "search_name": "Example Search",
+          "search_query": "index=main ...",
+          "description": "Alert description...",
+          "severity": "High",
+          "kill_chain": "Execution",
+          "mitre_tactics": ["TA0002"],
+          "mitre_techniques": ["T1059.001"]
+        }
+        ```
+
+2.  **`analysis_row_<row_number>.json`**
+    *   Location: Data/<sid>/analysis_row_<row_number>.json
+    *   Format: JSON object.
+    *   Content (Ideal Case): Contains the main analysis result from Ollama. When the LLM successfully follows the prompt and generates valid JSON within a json ... block, this file stores the parsed JSON object directly.
+
+By checking these files within the `Data/<sid>/` directory, you can access both the structured metadata and the detailed analysis provided by the Ollama LLM for each alert.
+
+## Project Structure
+
+The project follows a standard structure, typically deployed or cloned into a directory like `/opt/ThinkingSOC`:
+
+```
+/opt/ThinkingSOC/
+├── app/                   # Main application package containing all FastAPI and processing logic.
+│   ├── api/               # Contains API route definitions.
+│   │   └── webhook.py     # Handles the incoming POST requests to /api/v1/webhook.
+│   ├── external/          # Modules for interacting with external services.
+│   │   └── ollama_client.py # Logic for communicating with the Ollama API.
+│   ├── processing/        # Handles background task processing and queue management.
+│   │   ├── queue_manager.py # Manages the in-memory queue and disk persistence.
+│   │   └── worker.py      # Background worker that processes queued alerts.
+│   ├── utils/             # Shared utility functions and data models.
+│   │   ├── file_handler.py # Functions for reading/writing data and analysis files.
+│   │   └── models.py      # Pydantic models for data validation (e.g., WebhookData).
+│   ├── __init__.py        # Makes 'app' a Python package.
+│   └── main.py            # Main FastAPI application entry point: sets up the app, middleware, routers, and startup/shutdown events.
+├── Data/                  # Stores processed data, metadata, and analysis results (Auto-created, Ignored by Git). Located within the project root.
+├── prompt/                # Contains prompt templates used for Ollama.
+│   └── prompt.md          # The main prompt template defining the analysis task for the LLM.
+├── .env                   # Environment variables file for configuration (Should NOT be committed ideally, used for local settings). Located in the project root.
+├── .gitignore             # Specifies files and directories intentionally ignored by Git. Located in the project root.
+├── LICENSE                # Contains the project's software license (e.g., MIT). Located in the project root.
+├── README.md              # This documentation file. Located in the project root.
+└── requirements.txt       # Lists the required Python packages for the project. Located in the project root.
+```
+
+*   **`/opt/ThinkingSOC/app/`**: The core Python code for the FastAPI application.
+*   **`/opt/ThinkingSOC/Data/`**: Dynamically created directory to store all output files generated from processing alerts. **Should be in `.gitignore`**.
+*   **`/opt/ThinkingSOC/prompt/`**: Holds the crucial prompt file that guides the LLM's analysis.
+*   **`/opt/ThinkingSOC/.env`**: Local configuration file for secrets and environment-specific settings. **Should typically be in `.gitignore`**.
+*   **`/opt/ThinkingSOC/LICENSE`**: Defines how the code can be used and distributed.
+*   **`/opt/ThinkingSOC/README.md`**: Provides project overview, setup, and usage instructions.
+*   **`/opt/ThinkingSOC/requirements.txt`**: Lists Python dependencies needed to run the project (`pip install -r requirements.txt`).
 
 ## Integration with Other Security Tools
 
@@ -110,7 +365,6 @@ AI-SOCX is not just a theoretical model—it represents the next evolutionary st
 - **Reduced Human Error:** By automating routine processes and allowing human experts to focus on complex security challenges.
 - **Faster Incident Response:** Via the seamless integration of AI-driven insights and human decision-making.
 - **Enhanced Operational Efficiency:** With clearly defined roles and processes that optimize both technology and human resources.
-
 
 ## Conclusion
 
