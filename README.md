@@ -18,7 +18,7 @@ Operating 24/7, ThinkingSOC integrates with SOC environments to ingest, analyze,
 The complete ThinkingSOC solution relies on the interaction of three main components:
 
 1.  **Splunk:** Your Security Information and Event Management (SIEM) platform where security alerts are generated based on search criteria.
-2.  **ThinkingSOC API Server (This Repository):** A FastAPI-based application that acts as the intermediary. It receives alerts from Splunk via a webhook, queues them for processing, interacts with Ollama to get analysis, and stores the results.
+2.  **ThinkingSOC (This Repository):** A FastAPI-based application that acts as the intermediary. It receives alerts from Splunk via a webhook, queues them for processing, interacts with Ollama to get analysis, and stores the results.
 3.  **Ollama:** The self-hosted Large Language Model (LLM) provider. It runs the chosen language model (e.g., Llama3, Qwen, Mistral) and performs the actual text analysis based on the prompt and data sent by the ThinkingSOC API Server.
 
 
@@ -27,15 +27,15 @@ The complete ThinkingSOC solution relies on the interaction of three main compon
 1.  Splunk detects an event matching an alert's search criteria.
 2.  The configured **ThinkingSOC Alert Action** in Splunk triggers.
 3.  The Alert Action sends the relevant alert details via an HTTP POST request (webhook) to the ThinkingSOC API Server's `/api/v1/webhook` endpoint.
-4.  The ThinkingSOC API Server receives the request, validates the data, and places it into an asynchronous processing queue.
-5.  A background worker within the ThinkingSOC API Server picks up the alert data from the queue.
+4.  The ThinkingSOC receives the request, validates the data, and places it into an asynchronous processing queue.
+5.  A background worker within the ThinkingSOC picks up the alert data from the queue.
 6.  The worker prepares the data and sends it, along with the configured prompt (`prompt/prompt.md`), to the Ollama instance via its API.
 7.  Ollama processes the request using the specified LLM and returns the generated analysis.
-8.  The ThinkingSOC API Server worker receives the analysis, attempts to parse it (ideally as JSON), and saves the analysis, metadata, and any intermediate "think" steps to the `Data/` directory.
+8.  The ThinkingSOC worker receives the analysis, attempts to parse it (ideally as JSON), and saves the analysis, metadata, and any intermediate "think" steps to the `Data/` directory.
 
 **Scope of This Repository:**
 
-This repository contains the source code and documentation *only* for the **ThinkingSOC API Server** component. You will need to:
+This repository contains the source code and documentation *only* for the **ThinkingSOC** component. You will need to:
 
 *   Set up and manage your own **Splunk** instance.
 *   Install and configure the **[ThinkingSOC Alert Action for Splunk](https://github.com/Mohammad-Mirasadollahi/Splunk-Alert_ThinkingSOC)**.
@@ -96,7 +96,7 @@ This project has been tested on **Ubuntu 24.04 LTS**.
         ```bash
         curl -fsSL https://ollama.com/install.sh | sh
         ```
-    *   **Network Accessibility:** The ThinkingSOC API server needs to be able to reach the Ollama server over the network.
+    *   **Network Accessibility:** The ThinkingSOC needs to be able to reach the Ollama server over the network.
     *   **Ollama Host Configuration:** By default, Ollama might only listen on `127.0.0.1` (localhost). If ThinkingSOC is running on a different machine or in a different container than Ollama, you **must** configure Ollama to listen on an accessible network interface (like `0.0.0.0` to listen on all interfaces). This is often done by setting the `OLLAMA_HOST` environment variable **before starting the Ollama service**.
         *   **Example (Linux using systemd):** You might need to edit the Ollama systemd service file (e.g., via `sudo systemctl edit ollama.service`) and add `Environment="OLLAMA_HOST=0.0.0.0:11434"` under the `[Service]` section, then restart the service (`sudo systemctl daemon-reload && sudo systemctl restart ollama`). Refer to the [Ollama documentation on binding](https://github.com/ollama/ollama/blob/main/docs/faq.md#how-do-i-expose-ollama-on-my-network) or systemd for specifics.
         *   Verify the IP and port Ollama is listening on and ensure it matches the `OLLAMA_HOST` variable set in the ThinkingSOC `.env` file. Check firewall rules if connectivity issues persist.
