@@ -1,6 +1,13 @@
 
 # ThinkingSOC: AI-Powered Threat Detection and Response for Your SOC Environment
 
+
+
+![bbbbb](https://github.com/user-attachments/assets/b10cf7f0-922f-4142-afc3-2424255bd32c)
+
+
+
+
 [![License](https://img.shields.io/badge/License-PolyForm%20Internal%20Use%201.0.0-blue)](LICENSE)
 
 ## Overview
